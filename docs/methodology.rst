@@ -33,6 +33,7 @@ CausalML currently supports the following methods:
 - Neural network based algorithms
     - :ref:`CEVAE <methodology:CEVAE>`
     - :ref:`DragonNet <methodology:DragonNet>`
+    - :ref:`DESCN <methodology:DESCN>`
 - Treatment optimization algorithms
     - :ref:`Counterfactual Unit Selection <methodology:Counterfactual Unit Selection>`
     - :ref:`Counterfactual Value Estimator <methodology:Counterfactual Value Estimator>`
@@ -507,10 +508,10 @@ Neural Network Algorithms
 -------------------------
 
 *Relevant classes:* ``DragonNet`` in ``causalml.inference.tf`` or
-``causalml.inference.jax``, and ``CEVAE`` in ``causalml.inference.torch`` or
-``causalml.inference.jax``.
+``causalml.inference.jax``, ``CEVAE`` in ``causalml.inference.torch`` or
+``causalml.inference.jax``, and ``DESCN`` in ``causalml.inference.torch``.
 
-Both methods below are optional backends. Install them with the ``tf``, ``torch``
+The methods below are optional backends. Install them with the ``tf``, ``torch``
 or ``jax`` extras, e.g. ``pip install causalml[tf]``.
 
 CEVAE
@@ -602,6 +603,47 @@ The CATE estimate is the difference of the two outcome heads:
 
 CausalML ships DragonNet as ``causalml.inference.tf.DragonNet`` (TensorFlow) and
 a JAX/``flax.nnx`` backend.
+
+DESCN
+~~~~~
+
+DESCN :cite:`zhong2022descn` addresses the same entire-space problem for
+**binary** outcomes, in the E-commerce setting it was designed for: treatment is
+allocated where conversion is already more likely, and the treated and control
+populations differ in size. Fitting each response function on its own group then
+inherits both the treatment bias and the sample imbalance.
+
+DESCN instead learns everything jointly over the entire population, crossing a
+propensity model into the response models in the manner of ESMM. A shared trunk
+:math:`Z(x)` feeds four towers:
+
+- a **propensity tower** :math:`\hat{e}(x)`;
+- a **treated-response tower** :math:`\hat{h}_1(x)` and a **control-response
+  tower** :math:`\hat{h}_0(x)`;
+- a **pseudo-effect tower**, an auxiliary head that cross-fits one response
+  through the other and the shared effect estimate, relieving the imbalance
+  between the two groups.
+
+The cross is what ties treatment and response together: the products
+
+.. math::
+   \hat{P}(W{=}1, Y{=}1 \mid x) = \hat{e}(x)\,\hat{h}_1(x), \qquad
+   \hat{P}(W{=}0, Y{=}1 \mid x) = \big(1 - \hat{e}(x)\big)\,\hat{h}_0(x)
+
+are trained against the observed labels on the *entire* sample, so each response
+tower learns from all units while remaining the conditional response of its own
+group. Training minimizes a seven-term multi-task binary cross-entropy over the
+propensity, the two cross terms, the two factual responses and the two
+cross-fitting terms, with the samples reweighted by the inverse of the treated
+fraction; the per-term weights are constructor arguments.
+
+The CATE estimate is the difference of the two response towers:
+
+.. math::
+   \hat\tau(x) = \hat{h}_1(x) - \hat{h}_0(x)
+
+CausalML ships DESCN as ``causalml.inference.torch.DESCN`` (PyTorch), scoped to
+binary outcomes.
 
 Value optimization methods
 --------------------------
