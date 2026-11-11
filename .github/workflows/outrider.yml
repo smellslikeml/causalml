@@ -25,9 +25,6 @@ name: Outrider
 # refiner dispatches its promotions).
 
 on:
-  schedule:
-    # Daily at 14:00 UTC
-    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
       agent:
@@ -172,7 +169,7 @@ jobs:
           # dispatched: the input budget is full (see MAIN_WORKFLOW_INPUTS).
           # Must stay under the job's timeout-minutes or GitHub cancels the
           # run before the branch is pushed.
-          agent-timeout: '3600'
+          agent-timeout: '1800'
           mode: ${{ inputs.mode }}
           pin-arxiv: ${{ inputs.pin-arxiv }}
           publish: ${{ inputs.publish }}
